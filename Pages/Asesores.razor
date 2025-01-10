@@ -3,6 +3,7 @@
 @inject IJSRuntime JSRuntime
 @inject HttpClient _http
 @using System.Text.Json
+@using System.Text
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>Gestión de Asesores</h3>
@@ -144,23 +145,12 @@
     private int? searchEstablecimiento;
     private int? searchEmpresa;
 
-    private string Busqueda = string.Empty;
-
-    // protected override async Task OnInitializedAsync()
-    // {
-    //     try
-    //     {
-    //         Empresas = await _HttpClient.GetFromJsonAsync<List<empresaModel>>("Syscome/Empresa");
-    //         EmpresasFiltradas = Empresas;
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         // Mostrar notificación de error
-    //         Console.WriteLine($"Error al obtener las citas: {ex.Message}");
-    //     }
-
-
     protected override async Task OnInitializedAsync()
+    {
+        await LoadAsesores();
+    }
+
+    private async Task LoadAsesores()
     {
         try
         {
@@ -169,20 +159,8 @@
         }
         catch (Exception ex)
         {
-            // Mostrar notificación de error
-            Console.WriteLine($"Error al obtener las citas: {ex.Message}");
+            Console.Error.WriteLine($"Error al cargar asesores: {ex.Message}");
         }
-    // var response = await _http.GetAsync("Asesores");
-    //     if (response.IsSuccessStatusCode)
-    //     {
-    //         var json = await response.Content.ReadAsStringAsync();
-    //         asesores = JsonSerializer.Deserialize<List<AsesoresModel>>(json) ?? new List<AsesoresModel>();
-    //         FilterAsesores();
-    //     }
-    //     else
-    //     {
-    //         Console.WriteLine("Error al obtener asesores: " + response.StatusCode);
-    //     }
     }
 
     private void ToggleFilter() => showFilter = !showFilter;
@@ -199,13 +177,20 @@
 
     private async Task CreateAsesor()
     {
-        if (nuevoAsesor != null)
+        try
         {
-            nuevoAsesor.Id = asesores.Any() ? asesores.Max(a => a.Id) + 1 : 1;
-            asesores.Add(nuevoAsesor);
-            FilterAsesores();
-            nuevoAsesor = new AsesoresModel();
-            HideCreateModal();
+            var response = await _http.PostAsJsonAsync("Asesores", nuevoAsesor);
+            if (response.IsSuccessStatusCode)
+            {
+                var asesorCreado = await response.Content.ReadFromJsonAsync<AsesoresModel>();
+                asesores.Add(asesorCreado);
+                FilterAsesores();
+                HideCreateModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al crear asesor: {ex.Message}");
         }
     }
 
@@ -238,34 +223,52 @@
 
     private async Task UpdateAsesor()
     {
-        var asesor = asesores.FirstOrDefault(a => a.Id == asesorEditar.Id);
-        if (asesor != null)
+        try
         {
-            asesor.Nombre = asesorEditar.Nombre;
-            asesor.Especialidad = asesorEditar.Especialidad;
-            asesor.EstablecimientosId = asesorEditar.EstablecimientosId;
-            asesor.EmpresaId = asesorEditar.EmpresaId;
+            var response = await _http.PutAsJsonAsync($"Asesores/{asesorEditar.Id}", asesorEditar);
+            if (response.IsSuccessStatusCode)
+            {
+                var asesorActualizado = asesores.FirstOrDefault(a => a.Id == asesorEditar.Id);
+                if (asesorActualizado != null)
+                {
+                    asesorActualizado.Nombre = asesorEditar.Nombre;
+                    asesorActualizado.Especialidad = asesorEditar.Especialidad;
+                    asesorActualizado.EstablecimientosId = asesorEditar.EstablecimientosId;
+                    asesorActualizado.EmpresaId = asesorEditar.EmpresaId;
+                }
+                FilterAsesores();
+                HideEditModal();
+            }
         }
-        FilterAsesores();
-        HideEditModal();
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al actualizar asesor: {ex.Message}");
+        }
     }
 
-    private async Task DeleteAsesor(long id)
+    private async Task DeleteAsesor(int id)
     {
-        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", "¿Estás seguro de eliminar este asesor?");
-        if (confirm)
+        try
         {
-            asesores.RemoveAll(a => a.Id == id);
-            FilterAsesores();
+            var response = await _http.DeleteAsync($"Asesores/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                asesores.RemoveAll(a => a.Id == id);
+                FilterAsesores();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al eliminar asesor: {ex.Message}");
         }
     }
 
-    public class AsesoresModel
+    private class AsesoresModel
     {
-        public long Id { get; set; }
-        public string? Nombre { get; set; }
-        public int? Especialidad { get; set; }
-        public int? EstablecimientosId { get; set; }
-        public int? EmpresaId { get; set; }
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+        public int Especialidad { get; set; }
+        public int EstablecimientosId { get; set; }
+        public int EmpresaId { get; set; }
     }
 }

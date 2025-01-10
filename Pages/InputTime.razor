@@ -1,0 +1,29 @@
+@code {
+    // Parámetros que acepta el componente
+    [Parameter] public TimeSpan Value { get; set; }
+    [Parameter] public EventCallback<TimeSpan> ValueChanged { get; set; }
+    [Parameter] public string Class { get; set; } // Para clases CSS personalizadas
+
+    private string _time;
+
+    // Establecer el valor inicial
+    protected override void OnInitialized()
+    {
+        _time = Value.ToString(@"hh\:mm");
+    }
+
+    // Manejador de cambios cuando el usuario selecciona una nueva hora
+    private async Task OnTimeChanged(ChangeEventArgs e)
+    {
+        _time = e.Value?.ToString();
+        if (TimeSpan.TryParse(_time, out TimeSpan newTime))
+        {
+            Value = newTime;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+}
+
+<div class="@Class">
+    <input type="time" class="form-control" value="@_time" @onchange="OnTimeChanged" />
+</div>
