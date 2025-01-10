@@ -1,0 +1,274 @@
+﻿@page "/asesores"
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
+@inject HttpClient _http
+@using System.Text.Json
+@using System.Text
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Gestión de Asesores</h3>
+    <button class="btn btn-secondary" @onclick="ToggleFilter">Filtrar</button>
+</div>
+
+@if (showFilter)
+{
+    <div class="mb-3 p-3 border rounded">
+        <h5>Filtrar Asesores</h5>
+        <div class="row mb-2">
+            <div class="col">
+                <label for="searchName">Nombre</label>
+                <input type="text" id="searchName" @bind="searchName" class="form-control" placeholder="Buscar por nombre" />
+            </div>
+            <div class="col">
+                <label for="searchEspecialidad">Especialidad</label>
+                <input type="number" id="searchEspecialidad" @bind="searchEspecialidad" class="form-control" placeholder="Buscar por especialidad" />
+            </div>
+        </div>
+        <div class="row mb-2">
+            <div class="col">
+                <label for="searchEstablecimiento">Establecimiento</label>
+                <input type="number" id="searchEstablecimiento" @bind="searchEstablecimiento" class="form-control" placeholder="Buscar por establecimiento" />
+            </div>
+            <div class="col">
+                <label for="searchEmpresa">Empresa</label>
+                <input type="number" id="searchEmpresa" @bind="searchEmpresa" class="form-control" placeholder="Buscar por empresa" />
+            </div>
+        </div>
+        <button class="btn btn-primary" @onclick="FilterAsesores">Aplicar Filtro</button>
+    </div>
+}
+
+<button class="btn btn-primary mb-3" @onclick="ShowCreateModal">Crear Nuevo Asesor</button>
+
+@if (showCreateModal)
+{
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Crear Nuevo Asesor</h5>
+                    <button type="button" class="btn-close" @onclick="HideCreateModal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="nombre">Nombre:</label>
+                    <input type="text" id="nombre" @bind="nuevoAsesor.Nombre" class="form-control" />
+                    <label for="especialidad">Especialidad:</label>
+                    <input type="number" id="especialidad" @bind="nuevoAsesor.Especialidad" class="form-control" />
+                    <label for="establecimiento">Establecimiento:</label>
+                    <input type="number" id="establecimiento" @bind="nuevoAsesor.EstablecimientosId" class="form-control" />
+                    <label for="empresa">Empresa:</label>
+                    <input type="number" id="empresa" @bind="nuevoAsesor.EmpresaId" class="form-control" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideCreateModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateAsesor">Crear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th>Especialidad</th>
+            <th>Establecimiento</th>
+            <th>Empresa</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (filteredAsesores != null && filteredAsesores.Any())
+        {
+            @foreach (var asesor in filteredAsesores)
+            {
+                <tr>
+                    <td>@asesor.Nombre</td>
+                    <td>@asesor.Especialidad</td>
+                    <td>@asesor.EstablecimientosId</td>
+                    <td>@asesor.EmpresaId</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" @onclick="() => ShowEditModal(asesor)">Editar</button>
+                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteAsesor(asesor.Id)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="5" class="text-center">No hay asesores disponibles.</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (showEditModal)
+{
+    <div class="modal fade show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Asesor</h5>
+                    <button type="button" class="btn-close" @onclick="HideEditModal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="nombreEdit">Nombre:</label>
+                    <input type="text" id="nombreEdit" @bind="asesorEditar.Nombre" class="form-control" />
+                    <label for="especialidadEdit">Especialidad:</label>
+                    <input type="number" id="especialidadEdit" @bind="asesorEditar.Especialidad" class="form-control" />
+                    <label for="establecimientoEdit">Establecimiento:</label>
+                    <input type="number" id="establecimientoEdit" @bind="asesorEditar.EstablecimientosId" class="form-control" />
+                    <label for="empresaEdit">Empresa:</label>
+                    <input type="number" id="empresaEdit" @bind="asesorEditar.EmpresaId" class="form-control" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideEditModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="UpdateAsesor">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AsesoresModel> asesores = new List<AsesoresModel>();
+    private List<AsesoresModel> filteredAsesores = new List<AsesoresModel>();
+    private AsesoresModel nuevoAsesor = new AsesoresModel();
+    private AsesoresModel asesorEditar = new AsesoresModel();
+    private bool showCreateModal = false;
+    private bool showEditModal = false;
+    private bool showFilter = false;
+    private string searchName = "";
+    private int? searchEspecialidad;
+    private int? searchEstablecimiento;
+    private int? searchEmpresa;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsesores();
+    }
+
+    private async Task LoadAsesores()
+    {
+        try
+        {
+            asesores = await _http.GetFromJsonAsync<List<AsesoresModel>>("Asesores");
+            filteredAsesores = asesores;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al cargar asesores: {ex.Message}");
+        }
+    }
+
+    private void ToggleFilter() => showFilter = !showFilter;
+
+    private void FilterAsesores()
+    {
+        filteredAsesores = asesores.Where(a =>
+            (string.IsNullOrWhiteSpace(searchName) || a.Nombre?.Contains(searchName, StringComparison.OrdinalIgnoreCase) == true) &&
+            (!searchEspecialidad.HasValue || a.Especialidad == searchEspecialidad) &&
+            (!searchEstablecimiento.HasValue || a.EstablecimientosId == searchEstablecimiento) &&
+            (!searchEmpresa.HasValue || a.EmpresaId == searchEmpresa)
+        ).ToList();
+    }
+
+    private async Task CreateAsesor()
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("Asesores", nuevoAsesor);
+            if (response.IsSuccessStatusCode)
+            {
+                var asesorCreado = await response.Content.ReadFromJsonAsync<AsesoresModel>();
+                asesores.Add(asesorCreado);
+                FilterAsesores();
+                HideCreateModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al crear asesor: {ex.Message}");
+        }
+    }
+
+    private void ShowCreateModal() => showCreateModal = true;
+
+    private void HideCreateModal()
+    {
+        showCreateModal = false;
+        nuevoAsesor = new AsesoresModel();
+    }
+
+    private void ShowEditModal(AsesoresModel asesor)
+    {
+        asesorEditar = new AsesoresModel
+            {
+                Id = asesor.Id,
+                Nombre = asesor.Nombre,
+                Especialidad = asesor.Especialidad,
+                EstablecimientosId = asesor.EstablecimientosId,
+                EmpresaId = asesor.EmpresaId
+            };
+        showEditModal = true;
+    }
+
+    private void HideEditModal()
+    {
+        showEditModal = false;
+        asesorEditar = new AsesoresModel();
+    }
+
+    private async Task UpdateAsesor()
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync($"Asesores/{asesorEditar.Id}", asesorEditar);
+            if (response.IsSuccessStatusCode)
+            {
+                var asesorActualizado = asesores.FirstOrDefault(a => a.Id == asesorEditar.Id);
+                if (asesorActualizado != null)
+                {
+                    asesorActualizado.Nombre = asesorEditar.Nombre;
+                    asesorActualizado.Especialidad = asesorEditar.Especialidad;
+                    asesorActualizado.EstablecimientosId = asesorEditar.EstablecimientosId;
+                    asesorActualizado.EmpresaId = asesorEditar.EmpresaId;
+                }
+                FilterAsesores();
+                HideEditModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al actualizar asesor: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteAsesor(int id)
+    {
+        try
+        {
+            var response = await _http.DeleteAsync($"Asesores/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                asesores.RemoveAll(a => a.Id == id);
+                FilterAsesores();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error al eliminar asesor: {ex.Message}");
+        }
+    }
+
+    private class AsesoresModel
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+        public int Especialidad { get; set; }
+        public int EstablecimientosId { get; set; }
+        public int EmpresaId { get; set; }
+    }
+}

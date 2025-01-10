@@ -1,0 +1,170 @@
+﻿@page "/horarios"
+
+<h3>Gestión de Horarios</h3>
+
+<div class="mb-3">
+    <label for="sucursal" class="form-label">Sucursal</label>
+    <select @bind="NuevoHorario.Sucursal" class="form-control">
+        <option disabled selected>Seleccione una sucursal</option>
+        @foreach (var sucursal in SucursalesDisponibles)
+        {
+            <option value="@sucursal">@sucursal</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="dia" class="form-label">Día de la Semana</label>
+    <select @bind="NuevoHorario.Dia" class="form-control">
+        <option disabled selected>Seleccione un día</option>
+        @foreach (var dia in DiasDeLaSemana)
+        {
+            <option value="@dia">@dia</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="startTime" class="form-label">Hora de Inicio</label>
+    <InputTime @bind-Value="NuevoHorario.HoraInicio" class="form-control" />
+</div>
+<div class="mb-3">
+    <label for="endTime" class="form-label">Hora de Fin</label>
+    <InputTime @bind-Value="NuevoHorario.HoraFin" class="form-control" />
+</div>
+
+<button class="btn btn-primary" @onclick="AgregarHorario">Agregar Horario</button>
+
+@if (!string.IsNullOrEmpty(MensajeError))
+{
+    <div class="alert alert-danger mt-3">@MensajeError</div>
+}
+
+<hr />
+
+<h4>Horarios Disponibles</h4>
+<div class="mb-3">
+    <label for="filtroSucursal" class="form-label">Filtrar por Sucursal</label>
+    <select @bind="FiltroSucursal" class="form-control">
+        <option value="">Todas</option>
+        @foreach (var sucursal in SucursalesDisponibles)
+        {
+            <option value="@sucursal">@sucursal</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="filtroDia" class="form-label">Filtrar por Día</label>
+    <select @bind="FiltroDia" class="form-control">
+        <option value="">Todos</option>
+        @foreach (var dia in DiasDeLaSemana)
+        {
+            <option value="@dia">@dia</option>
+        }
+    </select>
+</div>
+
+@if (HorariosFiltrados.Any())
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Sucursal</th>
+                <th>Día</th>
+                <th>Hora de Inicio</th>
+                <th>Hora de Fin</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var horario in HorariosFiltrados)
+            {
+                <tr>
+                    <td>@horario.Sucursal</td>
+                    <td>@horario.Dia</td>
+                    <td>@horario.HoraInicio.ToString(@"hh\:mm")</td>
+                    <td>@horario.HoraFin.ToString(@"hh\:mm")</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" @onclick="() => EliminarHorario(horario)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No hay horarios disponibles. Agrega un nuevo horario para comenzar.</p>
+}
+
+@code {
+    public class Horario
+    {
+        public string Sucursal { get; set; }
+        public string Dia { get; set; }
+        public TimeSpan HoraInicio { get; set; }
+        public TimeSpan HoraFin { get; set; }
+    }
+
+    private List<string> SucursalesDisponibles = new() { "Sucursal 1", "Sucursal 2", "Sucursal 3" };
+    private List<string> DiasDeLaSemana = new() { "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo" };
+
+    private List<Horario> HorariosDisponibles = new();
+
+    private string FiltroSucursal = string.Empty;
+    private string FiltroDia = string.Empty;
+
+    private Horario NuevoHorario = new();
+    private string MensajeError = string.Empty;
+
+    private IEnumerable<Horario> HorariosFiltrados => HorariosDisponibles
+        .Where(h => (string.IsNullOrEmpty(FiltroSucursal) || h.Sucursal == FiltroSucursal) &&
+                    (string.IsNullOrEmpty(FiltroDia) || h.Dia == FiltroDia));
+
+    private void AgregarHorario()
+    {
+        MensajeError = string.Empty;
+
+        if (string.IsNullOrEmpty(NuevoHorario.Sucursal) || string.IsNullOrEmpty(NuevoHorario.Dia))
+        {
+            MensajeError = "Debe seleccionar una sucursal y un día.";
+            return;
+        }
+
+        if (NuevoHorario.HoraInicio == default || NuevoHorario.HoraFin == default)
+        {
+            MensajeError = "Debe seleccionar ambas horas: inicio y fin.";
+            return;
+        }
+
+        if (NuevoHorario.HoraInicio >= NuevoHorario.HoraFin)
+        {
+            MensajeError = "La hora de inicio debe ser menor que la hora de fin.";
+            return;
+        }
+
+        if (HorariosDisponibles.Any(h => h.Sucursal == NuevoHorario.Sucursal && h.Dia == NuevoHorario.Dia &&
+            ((NuevoHorario.HoraInicio >= h.HoraInicio && NuevoHorario.HoraInicio < h.HoraFin) ||
+             (NuevoHorario.HoraFin > h.HoraInicio && NuevoHorario.HoraFin <= h.HoraFin))))
+        {
+            MensajeError = "El horario se solapa con uno existente en la misma sucursal y día.";
+            return;
+        }
+
+        HorariosDisponibles.Add(new Horario
+            {
+                Sucursal = NuevoHorario.Sucursal,
+                Dia = NuevoHorario.Dia,
+                HoraInicio = NuevoHorario.HoraInicio,
+                HoraFin = NuevoHorario.HoraFin
+            });
+
+        NuevoHorario = new Horario();
+    }
+
+    private void EliminarHorario(Horario horario)
+    {
+        HorariosDisponibles.Remove(horario);
+    }
+}
