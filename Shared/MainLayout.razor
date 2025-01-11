@@ -1,17 +1,64 @@
-﻿@inherits LayoutComponentBase
+﻿@using Blazored.LocalStorage
+@using Microsoft.AspNetCore.Components.Authorization
+@inherits LayoutComponentBase
+@inject ILocalStorageService _localStorageService
+@inject NavigationManager NavigationManager
 
-<div class="page">
-    <div class="sidebar">
+@* <div class="theme-container @( _isDarkMode ? "dark-mode" : "light-mode")">
+    <header class="app-bar">
+        <button class="menu-button" @onclick="DrawerToggle">☰</button>
+        <h1 class="title">Administración de Inventario</h1>
+        <label class="switch">
+            <input type="checkbox" @bind="_isDarkMode" />
+            <span class="slider">Cambiar Modo Día/Noche</span>
+        </label>
+        <button class="logout-button" @onclick="logout">🚪</button>
+    </header>
+
+    <aside class="drawer @( _drawerOpen ? "open" : "closed")">
         <NavMenu />
-    </div>
+    </aside>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
+    <main class="content">
+        @Body
     </main>
-</div>
+</div> *@
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task logout()
+    {
+        await _localStorageService.RemoveItemAsync("userId");
+        await _localStorageService.RemoveItemAsync("token");
+        NavigationManager.NavigateTo("/", forceLoad: true);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity != null)
+        {
+            if (user.Identity.IsAuthenticated)
+            {
+                var id = user.Claims.Where(c => c.Type == "unique_name").Select(c => c.Value).FirstOrDefault();
+                await _localStorageService.SetItemAsync("userId", id);
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/");
+            }
+        }
+    }
+}
+

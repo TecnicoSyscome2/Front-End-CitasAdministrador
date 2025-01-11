@@ -1,0 +1,28 @@
+﻿@inherits LayoutComponentBase
+
+<style>
+    .h {
+        height: 100%;
+    }
+
+    .layout {
+        display: flex;
+        height: 100vh;
+    }
+
+    .main-content {
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1;
+    }
+</style>
+
+<div class="layout">
+    <div class="main-content">
+        @Body
+    </div>
+</div>
+

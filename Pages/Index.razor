@@ -1,9 +1,124 @@
-﻿@page "/"
+﻿@layout LoginLayout
+@page "/"
+@using Front_End_Citas.Administrador.Model
+@using Microsoft.AspNetCore.Components.Authorization
 
-<PageTitle>Index</PageTitle>
+@inject NavigationManager NavigationManager
+@inject ILocalStorageService _localStorageService
+@inject HttpClient Http
 
-<h1>Hello, world!</h1>
+<style>
+    .login-container {
+        padding: 20px;
+        margin: 20px auto;
+        max-width: 400px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        text-align: center;
+    }
 
-Welcome to your new app.
+        .login-container img {
+            width: 200px;
+            height: 150px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .alert {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        padding: 10px;
+        margin-top: 15px;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    .close-btn {
+        cursor: pointer;
+        float: right;
+        font-weight: bold;
+    }
+</style>
+
+<div class="login-container">
+    <img src="/Imagenes/syscome.png" alt="User Icon" />
+    <div>
+        <EditForm Model="@user" OnValidSubmit="OnValidSubmit">
+            <DataAnnotationsValidator />
+            <div class="form-group">
+                <label for="nickname">Usuario</label>
+                <InputText id="nickname" @bind-Value="user.UserName" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="password">Clave</label>
+                <InputText id="password" @bind-Value="user.Password" type="password" class="form-control" />
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </div>
+        </EditForm>
+        @if (showLeaveAlert)
+        {
+            <div class="alert">
+                <span class="close-btn" @onclick="(() => CloseMe(true))">&times;</span>
+                No se reconocen las credenciales ingresadas.
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    private bool showLeaveAlert = false;
+
+    UserLogin user = new UserLogin();
+    bool success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+        if (user.Identity != null)
+        {
+            if (user.Identity.IsAuthenticated)
+            {
+                NavigationManager.NavigateTo($"/Home");
+            }
+        }
+    }
+
+    protected async Task OnValidSubmit()
+    {
+        var httpResponse = await Http.PostAsJsonAsync<UserLogin>("Login/iniciarsesion", user);
+
+        if (!(httpResponse.StatusCode == System.Net.HttpStatusCode.OK))
+        {
+            showLeaveAlert = true;
+        }
+        else
+        {
+            var contentResponse = await httpResponse.Content.ReadAsStringAsync();
+            var token = contentResponse;
+            if (token != null)
+            {
+                await _localStorageService.SetItemAsync("token", token);
+                NavigationManager.NavigateTo($"home", forceLoad: true);
+            }
+            else
+            {
+                showLeaveAlert = true;
+            }
+        }
+    }
+
+    private void CloseMe(bool value)
+    {
+        showLeaveAlert = false;
+    }
+}
